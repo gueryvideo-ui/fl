@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¿Espectadora?</title>
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000000; /* Fondo negro como tu imagen */
+            font-family: 'serif';
+        }
+
+        #overlay-text {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffca28; /* Amarillo vibrante */
+            font-size: clamp(2.5rem, 10vw, 5rem);
+            font-weight: bold;
+            font-style: italic;
+            z-index: 5;
+            text-align: center;
+            width: 100%;
+            text-shadow: 0 0 20px rgba(255, 202, 40, 0.5);
+            pointer-events: none;
+        }
+
+        #ui {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+
+        button {
+            background: transparent;
+            color: #ffca28;
+            border: 2px solid #ffca28;
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #ffca28;
+            color: #000;
+        }
+
+        button.recording {
+            background: #ff5252;
+            color: white;
+            border-color: #ff5252;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay-text">¿Espectadora?</div>
+    
+    <div id="ui">
+        <button id="record-btn">Descargar Video</button>
+    </div>
+
+    <script>
+        let scene, camera, renderer, plane;
+        
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 10;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            const loader = new THREE.TextureLoader();
+            // AQUÍ CARGA TU ARCHIVO
+            loader.load('flores.jpeg', function(texture) {
+                const geometry = new THREE.PlaneGeometry(7, 9);
+                const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+                plane = new THREE.Mesh(geometry, material);
+                scene.add(plane);
+            }, undefined, function(err) {
+                console.error("No se pudo cargar flores.jpeg. Asegúrate de que esté en la misma carpeta.");
+            });
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = Date.now() * 0.002;
+
+            if (plane) {
+                // Movimiento de balanceo
+                plane.rotation.z = Math.sin(t) * 0.05;
+                // Efecto de escala (latido suave)
+                const s = 1 + Math.sin(t * 1.5) * 0.03;
+                plane.scale.set(s, s, s);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+
+        // Lógica de grabación para GitHub Pages o servidor local
+        const recordBtn = document.getElementById('record-btn');
+        let mediaRecorder;
+        let chunks = [];
+
+        recordBtn.onclick = () => {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                recordBtn.innerText = "Descargar Video";
+                recordBtn.classList.remove('recording');
+            } else {
+                chunks = [];
+                const stream = renderer.domElement.captureStream(30);
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                mediaRecorder.ondataavailable = e => chunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'espectadora.webm';
+                    a.click();
+                };
+                mediaRecorder.start();
+                recordBtn.innerText = "Detener y Guardar";
+                recordBtn.classList.add('recording');
+            }
+        };
+    </script>
+</body>
+</html>
